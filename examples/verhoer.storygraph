@@ -326,7 +326,14 @@
 				640,
 				720
 			],
-			"color": "#3a4a6a"
+			"color": "#3a4a6a",
+			"nodes": [
+				"choice",
+				"nice",
+				"threat",
+				"silent",
+				"timeout"
+			]
 		}
 	]
 }

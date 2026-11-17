@@ -22,6 +22,8 @@ signal countdown_started(seconds: float, node_id: String)
 signal countdown_finished(success: bool, node_id: String)
 ## Vom Node "Signal senden".
 signal custom_signal(signal_name: String, payload: Variant)
+## Nur mit simulate_missing_methods: eine Methode wäre im Spiel aufgerufen worden.
+signal method_simulated(node_path: String, method: String, args: Array)
 signal node_entered(node_id: String, node_type: String)
 signal started()
 signal finished(ending_id: String)
@@ -38,6 +40,8 @@ signal _tasks_changed()
 @export var autostart := false
 ## Schutz gegen Endlosschleifen ohne Wartepunkt.
 @export var max_steps_without_wait := 10000
+## Für Testläufe im Editor: fehlende Methoden melden statt als Fehler zu behandeln.
+var simulate_missing_methods := false
 
 var graph: StoryGraphData
 var variables: Dictionary = {}
@@ -457,6 +461,12 @@ func _execute(g: StoryGraphData, id: String, node: Dictionary, run: int) -> Dict
 			if context != null and path != "" and path != ".":
 				target = context.get_node_or_null(path)
 			var method := str(d.get("method", ""))
+			if (target == null or not target.has_method(method)) and simulate_missing_methods:
+				var sim_args := []
+				for a in d.get("args", []):
+					sim_args.append(evaluate(str(a), null, id))
+				method_simulated.emit(path, method, sim_args)
+				return {"port": 0}
 			if target == null or not target.has_method(method):
 				_error("Methode '%s' an '%s' nicht gefunden." % [method, path], id)
 				return {"port": 0}
