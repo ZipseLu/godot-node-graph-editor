@@ -27,6 +27,8 @@ var confirm_dialog: ConfirmationDialog
 var _confirm_action: Callable
 
 var current_path := ""
+var scanner := GameProjectScanner.new()
+var project_label: Label
 var meta: Dictionary = {}
 var dirty := false
 
@@ -60,6 +62,9 @@ func _ready() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
 		_confirm_discard(func(): get_tree().quit())
+	elif what == NOTIFICATION_APPLICATION_FOCUS_IN and is_node_ready():
+		# Zurück aus Godot: neue StoryActor/StoryTrigger übernehmen.
+		_rescan()
 
 
 # --- Aufbau ------------------------------------------------------------------
@@ -139,6 +144,7 @@ func _build_ui() -> void:
 	inspector.name = "Inspector"
 	inspector.canvas = canvas
 	inspector.variables_provider = func(): return variables_panel.variables
+	inspector.scanner_provider = func(): return scanner
 	inspector.about_to_edit.connect(_push_undo)
 	inspector.edited.connect(_on_changed)
 	right_tabs.add_child(inspector)
@@ -250,6 +256,11 @@ func _build_toolbar() -> Control:
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bar.add_child(spacer)
+	project_label = Label.new()
+	project_label.add_theme_font_size_override("font_size", 13)
+	project_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
+	bar.add_child(project_label)
+	bar.add_child(_tool_button("↻", "Spielprojekt neu einlesen (Story-IDs und Ereignisse)", _rescan))
 	file_label = Label.new()
 	file_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.7))
 	bar.add_child(file_label)
@@ -280,7 +291,7 @@ func _on_edit_menu(id: int) -> void:
 
 
 func _new_graph() -> void:
-	test_panel.stop_run()
+	test_panel.reset()
 	var g := StoryGraphData.new()
 	g.nodes["n1"] = {"id": "n1", "type": "start", "position": Vector2(80, 200), "data": {}}
 	g.nodes["n2"] = {"id": "n2", "type": "dialogue", "position": Vector2(400, 180),
@@ -296,7 +307,7 @@ func _open_file(path: String) -> void:
 	if g == null:
 		_set_status("⚠ Datei konnte nicht geöffnet werden: " + path)
 		return
-	test_panel.stop_run()
+	test_panel.reset()
 	_load_graph(g)
 	current_path = path
 	_after_file_change()
@@ -323,6 +334,7 @@ func _save_to(path: String) -> void:
 	dirty = false
 	_remember(path)
 	_update_title()
+	_rescan()
 	_set_status("Gespeichert: " + path)
 
 
@@ -359,7 +371,7 @@ func _after_file_change() -> void:
 	_last_coalesce_key = ""
 	test_panel.base_path = current_path
 	_update_title()
-	_validate()
+	_rescan()
 
 
 func _update_title() -> void:
@@ -480,10 +492,34 @@ func _on_add_menu_chosen(type: String) -> void:
 	_pending_add = {}
 
 
+# --- Spielprojekt -------------------------------------------------------------
+
+func _rescan() -> void:
+	scanner.scan(current_path)
+	if scanner.root == "":
+		project_label.text = "Kein Spielprojekt  "
+		project_label.tooltip_text = "Speichere den Graph in einem Godot-Projekt, dann werden Story-IDs und Ereignisse vorgeschlagen."
+	else:
+		project_label.text = "🎮 %s · %d Objekte · %d Ereignisse  " % [scanner.root.get_file(), scanner.actors.size(), scanner.events.size()]
+		project_label.tooltip_text = scanner.root
+	inspector.refresh()
+	_validate()
+
+
 # --- Validierung -------------------------------------------------------------
 
 func _validate() -> void:
-	_issues = StoryGraphValidator.validate(_current_graph())
+	var g := _current_graph()
+	_issues = StoryGraphValidator.validate(g)
+	if scanner.root != "":
+		for id in g.nodes:
+			var n: Dictionary = g.nodes[id]
+			for field in n["data"]:
+				if StoryNodeTypes.get_field_info(field).get("kind", "") == "actor":
+					var actor_id := str(n["data"][field])
+					if actor_id != "" and not scanner.actors.has(actor_id):
+						_issues.append({"severity": "warning", "node_id": id,
+							"message": "Story-ID '%s' gibt es in keiner Szene des Spielprojekts." % actor_id})
 	problems.clear()
 	var errors := 0
 	var warnings := 0

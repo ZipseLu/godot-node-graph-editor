@@ -5,3 +5,4 @@ cd "$(dirname "$0")/.."
 GODOT="${GODOT:-godot}"
 "$GODOT" --headless --path . --import >/dev/null 2>&1 || true
 "$GODOT" --headless --path . --script res://tests/run_tests.gd
+"$GODOT" --headless --path . --script res://tests/level_demo_test.gd

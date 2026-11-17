@@ -1,0 +1,205 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="Script" path="res://addons/story_graph/scene/story_actor.gd" id="1"]
+[ext_resource type="Script" path="res://addons/story_graph/scene/story_trigger.gd" id="2"]
+[ext_resource type="Script" path="res://examples/level_demo/player.gd" id="3"]
+[ext_resource type="Script" path="res://addons/story_graph/runtime/story_graph_runner.gd" id="4"]
+[ext_resource type="Script" path="res://addons/story_graph/ui/story_dialogue_ui.gd" id="5"]
+
+[sub_resource type="RectangleShape2D" id="wall_h"]
+size = Vector2(1600, 40)
+
+[sub_resource type="RectangleShape2D" id="wall_v"]
+size = Vector2(40, 900)
+
+[sub_resource type="RectangleShape2D" id="wall_r"]
+size = Vector2(40, 340)
+
+[sub_resource type="RectangleShape2D" id="door"]
+size = Vector2(40, 140)
+
+[sub_resource type="RectangleShape2D" id="zone_door"]
+size = Vector2(160, 240)
+
+[sub_resource type="RectangleShape2D" id="zone_exit"]
+size = Vector2(60, 180)
+
+[sub_resource type="CircleShape2D" id="key_shape"]
+radius = 40.0
+
+[sub_resource type="CircleShape2D" id="player_shape"]
+radius = 22.0
+
+[node name="Level" type="Node2D"]
+
+[node name="Boden" type="ColorRect" parent="."]
+offset_right = 1600.0
+offset_bottom = 900.0
+color = Color(0.14, 0.15, 0.17, 1)
+
+[node name="Draussen" type="ColorRect" parent="."]
+offset_left = 1560.0
+offset_top = 380.0
+offset_right = 1700.0
+offset_bottom = 520.0
+color = Color(0.08, 0.12, 0.1, 1)
+
+[node name="WandOben" type="StaticBody2D" parent="."]
+position = Vector2(800, 20)
+
+[node name="Form" type="CollisionShape2D" parent="WandOben"]
+shape = SubResource("wall_h")
+
+[node name="Bild" type="Polygon2D" parent="WandOben"]
+color = Color(0.3, 0.32, 0.36, 1)
+polygon = PackedVector2Array(-800.0, -20.0, 800.0, -20.0, 800.0, 20.0, -800.0, 20.0)
+
+[node name="WandUnten" type="StaticBody2D" parent="."]
+position = Vector2(800, 880)
+
+[node name="Form" type="CollisionShape2D" parent="WandUnten"]
+shape = SubResource("wall_h")
+
+[node name="Bild" type="Polygon2D" parent="WandUnten"]
+color = Color(0.3, 0.32, 0.36, 1)
+polygon = PackedVector2Array(-800.0, -20.0, 800.0, -20.0, 800.0, 20.0, -800.0, 20.0)
+
+[node name="WandLinks" type="StaticBody2D" parent="."]
+position = Vector2(20, 450)
+
+[node name="Form" type="CollisionShape2D" parent="WandLinks"]
+shape = SubResource("wall_v")
+
+[node name="Bild" type="Polygon2D" parent="WandLinks"]
+color = Color(0.3, 0.32, 0.36, 1)
+polygon = PackedVector2Array(-20.0, -450.0, 20.0, -450.0, 20.0, 450.0, -20.0, 450.0)
+
+[node name="WandRechtsOben" type="StaticBody2D" parent="."]
+position = Vector2(1540, 210)
+
+[node name="Form" type="CollisionShape2D" parent="WandRechtsOben"]
+shape = SubResource("wall_r")
+
+[node name="Bild" type="Polygon2D" parent="WandRechtsOben"]
+color = Color(0.3, 0.32, 0.36, 1)
+polygon = PackedVector2Array(-20.0, -170.0, 20.0, -170.0, 20.0, 170.0, -20.0, 170.0)
+
+[node name="WandRechtsUnten" type="StaticBody2D" parent="."]
+position = Vector2(1540, 690)
+
+[node name="Form" type="CollisionShape2D" parent="WandRechtsUnten"]
+shape = SubResource("wall_r")
+
+[node name="Bild" type="Polygon2D" parent="WandRechtsUnten"]
+color = Color(0.3, 0.32, 0.36, 1)
+polygon = PackedVector2Array(-20.0, -170.0, 20.0, -170.0, 20.0, 170.0, -20.0, 170.0)
+
+[node name="Lampe" type="Polygon2D" parent="."]
+position = Vector2(800, 120)
+color = Color(1, 0.92, 0.6, 1)
+polygon = PackedVector2Array(-30, -30, 30, -30, 30, 30, -30, 30)
+
+[node name="StoryActor" type="Node" parent="Lampe"]
+script = ExtResource("1")
+story_id = "lampe"
+
+[node name="Schluessel" type="Node2D" parent="."]
+position = Vector2(300, 700)
+
+[node name="Bild" type="Polygon2D" parent="Schluessel"]
+color = Color(1, 0.84, 0.2, 1)
+polygon = PackedVector2Array(-18, -8, 10, -8, 10, -14, 22, -14, 22, 14, 10, 14, 10, 8, -18, 8)
+
+[node name="StoryActor" type="Node" parent="Schluessel"]
+script = ExtResource("1")
+story_id = "schluessel"
+
+[node name="Aufheben" type="Area2D" parent="Schluessel"]
+
+[node name="Form" type="CollisionShape2D" parent="Schluessel/Aufheben"]
+shape = SubResource("key_shape")
+
+[node name="StoryTrigger" type="Node" parent="Schluessel/Aufheben"]
+script = ExtResource("2")
+event_name = "schluessel_aufgehoben"
+once = true
+
+[node name="Tuer" type="StaticBody2D" parent="."]
+position = Vector2(1540, 450)
+
+[node name="Form" type="CollisionShape2D" parent="Tuer"]
+shape = SubResource("door")
+
+[node name="Bild" type="Polygon2D" parent="Tuer"]
+color = Color(0.55, 0.36, 0.2, 1)
+polygon = PackedVector2Array(-20.0, -70.0, 20.0, -70.0, 20.0, 70.0, -20.0, 70.0)
+
+[node name="StoryActor" type="Node" parent="Tuer"]
+script = ExtResource("1")
+story_id = "tuer"
+
+[node name="TuerOffen" type="Marker2D" parent="."]
+position = Vector2(1540, 300)
+
+[node name="StoryActor" type="Node" parent="TuerOffen"]
+script = ExtResource("1")
+story_id = "tuer_offen"
+
+[node name="TuerZone" type="Area2D" parent="."]
+position = Vector2(1420, 450)
+
+[node name="Form" type="CollisionShape2D" parent="TuerZone"]
+shape = SubResource("zone_door")
+
+[node name="StoryTrigger" type="Node" parent="TuerZone"]
+script = ExtResource("2")
+event_name = "tuer_erreicht"
+once = true
+
+[node name="Ausgang" type="Area2D" parent="."]
+position = Vector2(1600, 450)
+
+[node name="Form" type="CollisionShape2D" parent="Ausgang"]
+shape = SubResource("zone_exit")
+
+[node name="StoryTrigger" type="Node" parent="Ausgang"]
+script = ExtResource("2")
+event_name = "raum_verlassen"
+once = true
+
+[node name="Spieler" type="CharacterBody2D" parent="." groups=["player"]]
+script = ExtResource("3")
+position = Vector2(200, 200)
+motion_mode = 1
+
+[node name="Form" type="CollisionShape2D" parent="Spieler"]
+shape = SubResource("player_shape")
+
+[node name="Bild" type="Polygon2D" parent="Spieler"]
+color = Color(0.36, 0.55, 0.94, 1)
+polygon = PackedVector2Array(0, -24, 21, -12, 21, 12, 0, 24, -21, 12, -21, -12)
+
+[node name="KameraRaum" type="Camera2D" parent="."]
+position = Vector2(800, 450)
+
+[node name="StoryActor" type="Node" parent="KameraRaum"]
+script = ExtResource("1")
+story_id = "kamera_raum"
+
+[node name="KameraTuer" type="Camera2D" parent="."]
+position = Vector2(1380, 450)
+zoom = Vector2(1.7, 1.7)
+enabled = true
+
+[node name="StoryActor" type="Node" parent="KameraTuer"]
+script = ExtResource("1")
+story_id = "kamera_tuer"
+
+[node name="StoryGraphRunner" type="Node" parent="."]
+script = ExtResource("4")
+graph_path = "res://examples/level_demo/flucht.storygraph"
+autostart = true
+
+[node name="StoryDialogueUI" type="CanvasLayer" parent="."]
+script = ExtResource("5")
+speaker_colors = {"Kara": Color(0.55, 0.85, 1, 1)}

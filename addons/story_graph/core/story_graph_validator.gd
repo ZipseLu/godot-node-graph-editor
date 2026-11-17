@@ -44,9 +44,12 @@ static func validate(g: StoryGraphData) -> Array[Dictionary]:
 					issues.append(_issue("error", id, "'%s': keine Variable gewählt." % def["title"]))
 				elif not g.variables.has(v):
 					issues.append(_issue("error", id, "'%s': Variable '%s' existiert nicht." % [def["title"], v]))
+			elif kind == "actor":
+				if str(data[field]) == "":
+					issues.append(_issue("error", id, "'%s': kein Objekt (Story-ID) angegeben." % def["title"]))
 			elif kind == "expression":
 				var required: bool = field in ["condition", "until"] and type in ["branch"]
-				_check_expression(issues, id, def["title"], str(data[field]), var_names, required or (field == "value" and data.get("op", "") != "toggle" and type in ["set_var", "compare"]))
+				_check_expression(issues, id, def["title"], str(data[field]), var_names, required or (field == "value" and data.get("op", "") != "toggle" and type in ["set_var", "compare", "actor_property"]))
 			elif kind == "string_list" and info.get("expression", false):
 				for e in data[field]:
 					_check_expression(issues, id, def["title"], str(e), var_names, true)
@@ -78,6 +81,24 @@ static func validate(g: StoryGraphData) -> Array[Dictionary]:
 			"call_method":
 				if str(data.get("method", "")) == "":
 					issues.append(_issue("error", id, "Methodenname fehlt."))
+			"wait_event":
+				if str(data.get("event", "")) == "":
+					issues.append(_issue("error", id, "Kein Ereignis angegeben."))
+			"actor_property":
+				if str(data.get("property", "")) == "":
+					issues.append(_issue("error", id, "Eigenschaft fehlt."))
+			"actor_animation":
+				if str(data.get("animation", "")) == "":
+					issues.append(_issue("error", id, "Animation fehlt."))
+			"actor_call":
+				if str(data.get("method", "")) == "":
+					issues.append(_issue("error", id, "Methodenname fehlt."))
+			"play_sound":
+				if str(data.get("sound", "")) == "":
+					issues.append(_issue("error", id, "Sound-Datei fehlt."))
+			"change_scene":
+				if str(data.get("scene_path", "")) == "":
+					issues.append(_issue("error", id, "Szene fehlt."))
 			"emit_signal":
 				if str(data.get("signal_name", "")) == "":
 					issues.append(_issue("error", id, "Signalname fehlt."))

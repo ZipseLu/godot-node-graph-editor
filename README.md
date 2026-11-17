@@ -59,38 +59,73 @@ Ausgänge, unbekannte Variablen, kaputte Ausdrücke …). Ein Klick springt zum 
 | Tasks | Task starten / abschließen / warten | Ziele, auch parallel (UND/ODER) |
 | Skript | Ausdruck ausführen | Beliebiger GDScript-Ausdruck (`ctx` = dein Kontext-Node) |
 | | Methode aufrufen | Methode an einem Node deines Spiels; gibt sie ein Signal zurück, wird gewartet |
-| | Signal senden | `custom_signal(name, daten)` für Kamera, Sound, Animation … |
+| | Signal senden | `custom_signal(name, daten)` für eigene Spiellogik |
+| Szene | Auf Ereignis warten, Animation, Zeigen/Verstecken, Eigenschaft, Bewegen, Methode, Kamera, Sound, Szene wechseln | Spielobjekte direkt steuern (siehe unten) |
 
 Variablen legst du im Tab **Variablen** an (wahr/falsch, Ganzzahl, Kommazahl, Text).
 Umbenennen passt alle Verweise im Graph automatisch an.
 
-## Im Spiel verwenden
+## Im Spiel verwenden – ohne eigenen Story-Code
 
-Kopiere `addons/story_graph/` in dein Spiel. Mehr braucht es nicht (kein Plugin aktivieren).
+![Demo-Level](docs/screenshot_level.png)
+
+Der Editor ist nur dein Werkzeug. Dein Spiel bleibt ein eigenes Godot-Projekt und bekommt:
+
+**1. Das Addon.** Kopiere `addons/story_graph/` in dein Spielprojekt (gleicher Pfad).
+Kein Plugin aktivieren nötig; die neuen Nodes stehen danach in Godots „Node hinzufügen“-Liste.
+
+**2. Deine Graphen.** Speichere sie mit dem Editor direkt in den Spielordner, z. B.
+`MeinSpiel/story/kapitel1.storygraph`. Der Editor erkennt dann das Spielprojekt (oben rechts
+„🎮 MeinSpiel · 12 Objekte · 5 Ereignisse“) und schlägt Story-IDs und Ereignisse zur Auswahl vor.
+↻ liest das Projekt neu ein; das passiert auch automatisch, wenn du aus Godot zurückwechselst.
+
+**3. Drei Bausteine in deinen Szenen:**
+
+| Node | Wohin | Wozu |
+|---|---|---|
+| `StoryGraphRunner` | einmal ins Level | `graph_path` setzen, `autostart` an. Führt den Graph aus. |
+| `StoryDialogueUI` | einmal ins Level | Fertige Anzeige für Dialoge, Entscheidungen (mit Zeitbalken) und Aufgaben. Klick/Enter = weiter, 1–9 = Option. |
+| `StoryActor` | als Kind an jedes Objekt, das die Story steuern soll | Story-ID vergeben, z. B. `tuer`, `lampe`, `kamera_tuer`, `punkt_fenster` (Marker). |
+| `StoryTrigger` | als Kind an etwas mit Signal | Meldet ein Ereignis an die Story. Unter einer Area2D/3D: Signal `body_entered`, Gruppe `player` → z. B. `kueche_betreten`. Unter einem Button: Signal `pressed`. |
+
+**4. Im Graph steuern** (Kategorie *Szene*):
+
+| Node | Was passiert |
+|---|---|
+| Auf Ereignis warten | wartet, bis ein StoryTrigger das Ereignis meldet; optional mit Zeitlimit |
+| Animation abspielen | AnimationPlayer oder AnimatedSprite des Objekts, wartet optional bis zum Ende |
+| Zeigen / Verstecken | `visible` an/aus |
+| Eigenschaft setzen | beliebige Eigenschaft, z. B. `color`, `modulate`, `light_energy`, `position:x`, optional weich übergeblendet |
+| Objekt bewegen | zum Ort eines anderen Objekts (z. B. ein Marker mit StoryActor) |
+| Objekt-Methode aufrufen | z. B. `open()` an deiner Tür; gibt sie ein Signal zurück, wird gewartet |
+| Kamera wechseln | macht eine Camera2D/3D mit StoryActor aktiv |
+| Sound abspielen | Audiodatei abspielen |
+| Szene wechseln | lädt die nächste Szene (die startet ihren eigenen Graph) |
+
+In Bedingungen prüft `ereignis("kueche_betreten")`, ob etwas schon passiert ist.
+
+Im **Testlauf** des Editors werden Szenen-Aktionen nur angezeigt, und erwartete Ereignisse kannst du
+per ⚡ auslösen – so testest du die Story, ohne das Spiel zu starten.
+
+**Beispiel:** `examples/level_demo/level.tscn` (in Godot öffnen, **F6**, Bewegung mit WASD).
+Die ganze Abfolge – Schlüssel finden, Tür unter Zeitdruck öffnen, Kamera, Alarmlicht, zwei Enden –
+steckt in `flucht.storygraph`; die Szene selbst enthält nur die Spielerbewegung als Code.
+
+### Für Programmierer
+
+Alles geht auch per Code, z. B. für eigene UIs oder Spielstände:
 
 ```gdscript
-@onready var story: StoryGraphRunner = $StoryGraphRunner  # graph_path im Inspector setzen
+@onready var story: StoryGraphRunner = $StoryGraphRunner
 
-func _ready():
-    story.dialogue_requested.connect(func(speaker, text, _id):
-        $UI.show_line(speaker, text))          # danach story.advance()
-    story.choice_requested.connect(func(prompt, options, time_limit, _id):
-        $UI.show_choices(options, time_limit))  # danach story.choose(index)
-    story.task_started.connect(func(id, desc): $HUD.add_objective(id, desc))
-    story.custom_signal.connect(func(name, data): print(name, data))
-    story.finished.connect(func(ending): print("Ende: ", ending))
-    story.start()
-
-# Vom Spiel aus:
+story.dialogue_requested.connect(func(speaker, text, _id): ...)   # danach story.advance()
+story.choice_requested.connect(func(prompt, options, limit, _id): ...)  # danach story.choose(i)
+story.custom_signal.connect(func(name, data): ...)
 story.set_var("hat_waffe", true)
 story.complete_task("finde_schluessel")
-
-# Spielstand:
-var save := story.get_state()
-story.set_state(save); story.start(save.current_node)
+story.notify_event("alarm_ausgeloest")   # oder: StoryTrigger.notify(get_tree(), "…")
+var save := story.get_state()            # Spielstand; später set_state() + start(save.current_node)
 ```
-
-Ein lauffähiges Beispiel ist `examples/demo_game.tscn` (in Godot öffnen, **F6**).
 
 Alle Signale und Methoden sind in
 [`story_graph_runner.gd`](addons/story_graph/runtime/story_graph_runner.gd) dokumentiert.
@@ -101,6 +136,8 @@ Alle Signale und Methoden sind in
 addons/story_graph/
   core/       Node-Definitionen, Dateiformat, Validator (von Editor und Spiel geteilt)
   runtime/    StoryGraphRunner – führt Graphen im Spiel aus
+  scene/      StoryActor, StoryTrigger – verbinden Spielobjekte mit der Story
+  ui/         StoryDialogueUI – fertige Dialog-/Entscheidungsanzeige
 editor/       Die Editor-Anwendung (GraphEdit-basiert)
 examples/     Beispielgraph und Beispielspiel
 tests/        Headless-Tests
@@ -112,7 +149,7 @@ und das Verhalten in `StoryGraphRunner._execute()` umsetzen.
 ## Tests
 
 ```bash
-GODOT=/pfad/zu/godot ./tests/run.sh                           # Laufzeit + Validator
+GODOT=/pfad/zu/godot ./tests/run.sh                           # Laufzeit, Validator, Demo-Level-Durchlauf
 godot --path . --script res://tests/ui_smoke.gd -- /tmp/shots # Editor-Rauchtest mit Screenshots
 ```
 
