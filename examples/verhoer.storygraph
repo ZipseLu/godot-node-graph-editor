@@ -1,0 +1,332 @@
+{
+	"format": "story_graph",
+	"version": 1,
+	"meta": {
+		"title": "Demo: Verhör"
+	},
+	"variables": {
+		"vertrauen": {
+			"type": "int",
+			"default": 0
+		},
+		"geduld": {
+			"type": "bool",
+			"default": true
+		}
+	},
+	"nodes": [
+		{
+			"id": "start",
+			"type": "start",
+			"position": [
+				0,
+				200
+			],
+			"data": {}
+		},
+		{
+			"id": "intro",
+			"type": "dialogue",
+			"position": [
+				220,
+				180
+			],
+			"data": {
+				"speaker": "Erzähler",
+				"text": "Ein Verdächtiger sitzt im Verhörraum. Die Uhr tickt."
+			}
+		},
+		{
+			"id": "task",
+			"type": "task_start",
+			"position": [
+				520,
+				180
+			],
+			"data": {
+				"task_id": "gestaendnis",
+				"description": "Bring den Verdächtigen zum Reden"
+			}
+		},
+		{
+			"id": "q",
+			"type": "dialogue",
+			"position": [
+				800,
+				180
+			],
+			"data": {
+				"speaker": "Verdächtiger",
+				"text": "Ich sage gar nichts."
+			}
+		},
+		{
+			"id": "choice",
+			"type": "choice",
+			"position": [
+				1080,
+				160
+			],
+			"data": {
+				"prompt": "Wie gehst du vor?",
+				"options": [
+					"Verständnis zeigen",
+					"Drohen",
+					"Schweigen"
+				],
+				"time_limit": 8.0
+			}
+		},
+		{
+			"id": "nice",
+			"type": "set_var",
+			"position": [
+				1420,
+				40
+			],
+			"data": {
+				"variable": "vertrauen",
+				"op": "+=",
+				"value": "2"
+			}
+		},
+		{
+			"id": "threat",
+			"type": "set_var",
+			"position": [
+				1420,
+				200
+			],
+			"data": {
+				"variable": "vertrauen",
+				"op": "-=",
+				"value": "1"
+			}
+		},
+		{
+			"id": "silent",
+			"type": "set_var",
+			"position": [
+				1420,
+				360
+			],
+			"data": {
+				"variable": "geduld",
+				"op": "toggle",
+				"value": ""
+			}
+		},
+		{
+			"id": "timeout",
+			"type": "dialogue",
+			"position": [
+				1420,
+				520
+			],
+			"data": {
+				"speaker": "Verdächtiger",
+				"text": "Siehst du? Du weißt selbst nicht, was du willst."
+			}
+		},
+		{
+			"id": "lbl",
+			"type": "label",
+			"position": [
+				1720,
+				200
+			],
+			"data": {
+				"name": "auswertung"
+			}
+		},
+		{
+			"id": "cmp",
+			"type": "compare",
+			"position": [
+				1980,
+				200
+			],
+			"data": {
+				"variable": "vertrauen",
+				"compare_op": ">=",
+				"value": "2"
+			}
+		},
+		{
+			"id": "confess",
+			"type": "dialogue",
+			"position": [
+				2280,
+				80
+			],
+			"data": {
+				"speaker": "Verdächtiger",
+				"text": "Okay … ich erzähle dir alles."
+			}
+		},
+		{
+			"id": "done",
+			"type": "task_complete",
+			"position": [
+				2560,
+				80
+			],
+			"data": {
+				"task_id": "gestaendnis",
+				"success": true
+			}
+		},
+		{
+			"id": "end_good",
+			"type": "end",
+			"position": [
+				2840,
+				80
+			],
+			"data": {
+				"ending_id": "gestaendnis"
+			}
+		},
+		{
+			"id": "fail",
+			"type": "dialogue",
+			"position": [
+				2280,
+				340
+			],
+			"data": {
+				"speaker": "Verdächtiger",
+				"text": "Wir sind hier fertig."
+			}
+		},
+		{
+			"id": "end_bad",
+			"type": "end",
+			"position": [
+				2560,
+				340
+			],
+			"data": {
+				"ending_id": "schweigen"
+			}
+		},
+		{
+			"id": "jmp",
+			"type": "jump",
+			"position": [
+				1720,
+				520
+			],
+			"data": {
+				"label_target": "auswertung"
+			}
+		}
+	],
+	"connections": [
+		{
+			"from": "start",
+			"from_port": 0,
+			"to": "intro"
+		},
+		{
+			"from": "intro",
+			"from_port": 0,
+			"to": "task"
+		},
+		{
+			"from": "task",
+			"from_port": 0,
+			"to": "q"
+		},
+		{
+			"from": "q",
+			"from_port": 0,
+			"to": "choice"
+		},
+		{
+			"from": "choice",
+			"from_port": 0,
+			"to": "nice"
+		},
+		{
+			"from": "choice",
+			"from_port": 1,
+			"to": "threat"
+		},
+		{
+			"from": "choice",
+			"from_port": 2,
+			"to": "silent"
+		},
+		{
+			"from": "choice",
+			"from_port": 3,
+			"to": "timeout"
+		},
+		{
+			"from": "nice",
+			"from_port": 0,
+			"to": "lbl"
+		},
+		{
+			"from": "threat",
+			"from_port": 0,
+			"to": "lbl"
+		},
+		{
+			"from": "silent",
+			"from_port": 0,
+			"to": "lbl"
+		},
+		{
+			"from": "timeout",
+			"from_port": 0,
+			"to": "jmp"
+		},
+		{
+			"from": "lbl",
+			"from_port": 0,
+			"to": "cmp"
+		},
+		{
+			"from": "cmp",
+			"from_port": 0,
+			"to": "confess"
+		},
+		{
+			"from": "cmp",
+			"from_port": 1,
+			"to": "fail"
+		},
+		{
+			"from": "confess",
+			"from_port": 0,
+			"to": "done"
+		},
+		{
+			"from": "done",
+			"from_port": 0,
+			"to": "end_good"
+		},
+		{
+			"from": "fail",
+			"from_port": 0,
+			"to": "end_bad"
+		}
+	],
+	"comments": [
+		{
+			"id": "c1",
+			"title": "Die Entscheidung",
+			"position": [
+				1040,
+				0
+			],
+			"size": [
+				640,
+				720
+			],
+			"color": "#3a4a6a"
+		}
+	]
+}
