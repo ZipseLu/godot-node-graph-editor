@@ -23,6 +23,8 @@ var _tasks_box: VBoxContainer
 var _start_btn: Button
 var _stop_btn: Button
 var _follow: CheckBox
+var _event_box: HBoxContainer
+var _event_edit: LineEdit
 var _timer_total := 0.0
 var _timer_left := 0.0
 
@@ -89,6 +91,19 @@ func _ready() -> void:
 	_continue.pressed.connect(func(): runner.advance())
 	box.add_child(_continue)
 
+	box.add_child(_section("Ereignis aus dem Spiel simulieren"))
+	_event_box = HBoxContainer.new()
+	_event_edit = LineEdit.new()
+	_event_edit.placeholder_text = "Ereignisname"
+	_event_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_event_edit.text_submitted.connect(func(t): _fire_event(t))
+	_event_box.add_child(_event_edit)
+	var fire := Button.new()
+	fire.text = "⚡ auslösen"
+	fire.pressed.connect(func(): _fire_event(_event_edit.text))
+	_event_box.add_child(fire)
+	box.add_child(_event_box)
+
 	box.add_child(_section("Tasks"))
 	_tasks_box = VBoxContainer.new()
 	box.add_child(_tasks_box)
@@ -120,9 +135,15 @@ func _ready() -> void:
 		_hide_timer()
 		_write("[color=#ef8a7a]Countdown:[/color] %s" % ("geschafft" if ok else "abgelaufen")))
 	runner.custom_signal.connect(func(n, p): _write("[color=#8aa4c8]📡 Signal[/color] %s %s" % [n, _fmt(p) if p != null else ""]))
-	runner.node_entered.connect(func(id, _t):
+	runner.node_entered.connect(func(id, t):
+		if t == "wait_event":
+			var ev := str(runner.graph.nodes.get(id, {}).get("data", {}).get("event", "")) if runner.graph else ""
+			_event_edit.text = ev
+			_write("[color=#d0679b]⏳ wartet auf Ereignis[/color] %s  [color=#ffffff66](unten auslösen)[/color]" % ev)
 		if _follow.button_pressed:
 			node_entered.emit(id))
+	runner.event_received.connect(func(n, _d): _write("[color=#d0679b]⚡ Ereignis[/color] %s" % n))
+	runner.action_simulated.connect(func(text): _write("[color=#d0679b]🎬[/color] %s [color=#ffffff66](im Spiel)[/color]" % text))
 	runner.simulate_missing_methods = true
 	runner.method_simulated.connect(func(path, method, args):
 		_write("[color=#8aa4c8]⚙ Methode[/color] %s.%s(%s) [color=#ffffff66](im Spiel ausgeführt)[/color]" % [path, method, ", ".join(args.map(_fmt))]))
@@ -164,6 +185,17 @@ func stop_run() -> void:
 		runner.stop()
 		_write("[color=#ffffff88]■ abgebrochen[/color]")
 	_finish()
+
+
+## Nach dem Öffnen einer anderen Datei: Ausgabe leeren.
+func reset() -> void:
+	stop_run()
+	_log.clear()
+	_event_edit.text = ""
+	runner.tasks.clear()
+	runner.variables.clear()
+	_refresh_tasks()
+	_refresh_vars()
 
 
 func is_running() -> bool:
@@ -220,6 +252,12 @@ func _on_choice(prompt: String, options: Array, limit: float, _id: String) -> vo
 		_choices.add_child(b)
 	if limit > 0.0:
 		_show_timer(limit, "Entscheidung")
+
+
+func _fire_event(n: String) -> void:
+	n = n.strip_edges()
+	if n != "":
+		runner.notify_event(n)
 
 
 func _clear_choices() -> void:

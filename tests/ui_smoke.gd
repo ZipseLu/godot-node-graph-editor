@@ -125,6 +125,31 @@ func _run() -> void:
 	_check(g != null and g.nodes.size() == canvas.story_nodes().size(), "Speichern und Laden")
 	_check(g.comments.size() == 1 and g.comments[0]["nodes"].size() > 0, "Rahmen-Zuordnung gespeichert")
 
+	# Spielprojekt-Erkennung: Story-IDs und Ereignisse aus den Szenen
+	main.dirty = false
+	main._open_file("res://examples/level_demo/flucht.storygraph")
+	await _frames(5)
+	_check(main.scanner.root != "", "Spielprojekt gefunden")
+	_check(main.scanner.actors.has("tuer") and main.scanner.actors.has("kamera_tuer"), "Story-IDs aus level.tscn gelesen")
+	_check(main.scanner.events.has("tuer_erreicht"), "Ereignisse aus level.tscn gelesen")
+	_check(main._issues.filter(func(i): return i["severity"] == "error").is_empty(), "Demo-Level-Graph ohne Fehler")
+	main.frame_all()
+	var move := canvas.get_story_node("open_fast")
+	canvas.set_selected(move)
+	canvas.zoom = 0.8
+	canvas.scroll_offset = (move.position_offset + Vector2(0, 100)) * 0.8 - canvas.size * 0.5
+	await _shot("06_szene_nodes.png")
+	main._start_test("")
+	await _frames(5)
+	main.test_panel.runner.advance()
+	await _frames(5)
+	_check(main.test_panel._event_edit.text == "schluessel_aufgehoben", "Testlauf schlägt erwartetes Ereignis vor")
+	main.test_panel._fire_event("schluessel_aufgehoben")
+	await _frames(5)
+	_check(main.test_panel.runner.get_var("hat_schluessel") == true, "Ereignis im Testlauf auslösbar, Szenen-Aktion simuliert")
+	await _shot("07_testlauf_ereignis.png")
+	main.test_panel.stop_run()
+
 	print("FEHLGESCHLAGEN: %d" % failures if failures > 0 else "UI-Rauchtest bestanden.")
 	main.dirty = false
 	quit(1 if failures > 0 else 0)

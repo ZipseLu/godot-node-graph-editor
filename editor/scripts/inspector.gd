@@ -9,6 +9,8 @@ signal edited()
 var canvas: GraphCanvas
 ## Wird vom Hauptfenster gesetzt: liefert die Variablen-Definitionen.
 var variables_provider: Callable
+## Liefert den GameProjectScanner (Story-IDs und Ereignisse des Spielprojekts).
+var scanner_provider: Callable
 
 var _box: VBoxContainer
 var _node: StoryEditorNode
@@ -194,12 +196,96 @@ func _make_editor(field: String, info: Dictionary) -> Control:
 			return ob
 		"string_list", "int_list":
 			return _list_editor(field, info, kind == "int_list")
+		"actor", "event":
+			return _suggest_editor(field, info, kind)
+		"file":
+			return _file_editor(field, info)
 		_:
 			var le := LineEdit.new()
 			le.text = str(value)
 			le.placeholder_text = info.get("placeholder", "")
 			le.text_changed.connect(func(t): _set_field(field, t, false))
 			return le
+
+
+## Textfeld mit Vorschlagsliste aus dem Spielprojekt (Story-IDs bzw. Ereignisse).
+func _suggest_editor(field: String, info: Dictionary, kind: String) -> Control:
+	var scanner: GameProjectScanner = scanner_provider.call()
+	var source: Dictionary = scanner.actors if kind == "actor" else scanner.events
+	var box := VBoxContainer.new()
+	var row := HBoxContainer.new()
+	var le := LineEdit.new()
+	le.text = str(_node.data[field])
+	le.placeholder_text = info.get("placeholder", "")
+	le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(le)
+	var mb := MenuButton.new()
+	mb.text = "▾"
+	mb.tooltip_text = "Aus dem Spielprojekt wählen"
+	var popup := mb.get_popup()
+	var keys := source.keys()
+	keys.sort()
+	for k in keys:
+		popup.add_item("%s      %s" % [k, ", ".join(PackedStringArray(source[k].map(func(p): return p.get_file())))])
+		popup.set_item_metadata(popup.item_count - 1, k)
+	if keys.is_empty():
+		mb.disabled = true
+		mb.tooltip_text = "Keine %s im Spielprojekt gefunden" % ("StoryActor" if kind == "actor" else "StoryTrigger")
+	row.add_child(mb)
+	box.add_child(row)
+	var warn := _hint("")
+	warn.add_theme_color_override("font_color", Color("#f0c674"))
+	box.add_child(warn)
+	var update_warn := func(t: String):
+		if scanner.root == "":
+			warn.text = "Tipp: Speichere den Graph in deinem Spielprojekt, dann schlägt der Editor die %s vor." % ("Story-IDs" if kind == "actor" else "Ereignisse")
+			warn.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
+		elif t != "" and not source.has(t):
+			warn.text = ("⚠ Kein StoryActor mit dieser ID im Spielprojekt." if kind == "actor"
+				else "Kein StoryTrigger meldet dieses Ereignis (okay, wenn dein Code notify_event() aufruft).")
+			warn.add_theme_color_override("font_color", Color("#f0c674"))
+		else:
+			warn.text = ""
+		warn.visible = warn.text != ""
+	update_warn.call(le.text)
+	le.text_changed.connect(func(t):
+		_set_field(field, t, false)
+		update_warn.call(t))
+	popup.index_pressed.connect(func(i):
+		le.text = popup.get_item_metadata(i)
+		le.text_changed.emit(le.text))
+	return box
+
+
+func _file_editor(field: String, info: Dictionary) -> Control:
+	var row := HBoxContainer.new()
+	var le := LineEdit.new()
+	le.text = str(_node.data[field])
+	le.placeholder_text = info.get("placeholder", "")
+	le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	le.text_changed.connect(func(t): _set_field(field, t, false))
+	row.add_child(le)
+	var btn := Button.new()
+	btn.text = "…"
+	btn.tooltip_text = "Datei auswählen"
+	btn.pressed.connect(func():
+		var dlg := FileDialog.new()
+		dlg.access = FileDialog.ACCESS_FILESYSTEM
+		dlg.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+		dlg.use_native_dialog = true
+		dlg.filters = PackedStringArray(info.get("filters", ["*.storygraph ; Story Graph"]))
+		var scanner: GameProjectScanner = scanner_provider.call()
+		if scanner.root != "":
+			dlg.current_dir = scanner.root
+		dlg.file_selected.connect(func(path):
+			le.text = scanner.to_res_path(path)
+			le.text_changed.emit(le.text)
+			dlg.queue_free())
+		dlg.canceled.connect(dlg.queue_free)
+		add_child(dlg)
+		dlg.popup_centered(Vector2i(900, 600)))
+	row.add_child(btn)
+	return row
 
 
 func _variable_picker(field: String, current: String) -> Control:

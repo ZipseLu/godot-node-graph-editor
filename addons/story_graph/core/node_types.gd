@@ -16,6 +16,7 @@ const CATEGORIES := {
 	"values": {"title": "Werte",     "color": Color("#3fb68b")},
 	"time":   {"title": "Zeit",      "color": Color("#e06a5a")},
 	"tasks":  {"title": "Tasks",     "color": Color("#c9b43c")},
+	"scene":  {"title": "Szene",     "color": Color("#d0679b")},
 	"script": {"title": "Skript",    "color": Color("#8a96a3")},
 }
 
@@ -42,7 +43,7 @@ const FIELDS := {
 	"name":        {"label": "Name", "kind": "string"},
 	"target":      {"label": "Ziel", "kind": "string"},
 	"label_target":{"label": "Ziel-Sprungmarke", "kind": "label_ref"},
-	"path":        {"label": "Graph-Datei", "kind": "file", "placeholder": "res://story/kapitel_2.storygraph"},
+	"path":        {"label": "Graph-Datei", "kind": "file", "placeholder": "res://story/kapitel_2.storygraph", "filters": ["*.storygraph ; Story Graph"]},
 	"ending_id":   {"label": "Enden-ID", "kind": "string", "placeholder": "z. B. flucht_gelungen"},
 	"task_id":     {"label": "Task-ID", "kind": "string", "placeholder": "z. B. finde_schluessel"},
 	"task_ids":    {"label": "Task-IDs", "kind": "string_list", "item_default": "task"},
@@ -55,6 +56,18 @@ const FIELDS := {
 	"signal_name": {"label": "Signalname", "kind": "string", "placeholder": "z. B. kamera_wechsel"},
 	"payload":     {"label": "Daten (Ausdruck)", "kind": "expression", "placeholder": "z. B. {\"kamera\": 2}"},
 	"steps":       {"label": "Anzahl Schritte", "kind": "int", "min": 2, "max": 16, "step": 1},
+	"actor":       {"label": "Objekt (Story-ID)", "kind": "actor", "placeholder": "z. B. tuer_kueche"},
+	"to_actor":    {"label": "Ziel-Objekt (z. B. ein Marker)", "kind": "actor", "placeholder": "z. B. punkt_fenster"},
+	"animation":   {"label": "Animation", "kind": "string", "placeholder": "z. B. oeffnen"},
+	"wait_done":   {"label": "Warten, bis fertig", "kind": "bool"},
+	"visible":     {"label": "Sichtbar", "kind": "bool"},
+	"property":    {"label": "Eigenschaft", "kind": "string", "placeholder": "z. B. modulate, light_energy, position:x"},
+	"duration":    {"label": "Dauer in Sekunden", "kind": "float", "min": 0.0, "max": 600.0, "step": 0.1},
+	"sound":       {"label": "Sound-Datei", "kind": "file", "placeholder": "res://sounds/tuer.ogg", "filters": ["*.ogg, *.wav, *.mp3 ; Audio"]},
+	"volume_db":   {"label": "Lautstärke (dB)", "kind": "float", "min": -60.0, "max": 24.0, "step": 1.0},
+	"scene_path":  {"label": "Szene", "kind": "file", "placeholder": "res://levels/kapitel_2.tscn", "filters": ["*.tscn, *.scn ; Szene"]},
+	"event":       {"label": "Ereignis", "kind": "event", "placeholder": "z. B. kueche_betreten"},
+	"timeout":     {"label": "Zeitlimit in Sekunden (0 = keins)", "kind": "float", "min": 0.0, "max": 3600.0, "step": 0.5},
 	"note":        {"label": "Notiz", "kind": "multiline", "placeholder": "Notiz für dein Team (wird nicht ausgeführt)"},
 }
 
@@ -120,6 +133,33 @@ const TYPES := {
 	"task_wait":    {"title": "Auf Tasks warten", "category": "tasks", "has_input": true, "outputs": ["weiter"],
 		"fields": {"task_ids": ["task"], "mode": "all"},
 		"help": "Wartet, bis alle (UND) oder eine (ODER) der Aufgaben abgeschlossen sind."},
+	"wait_event":   {"title": "Auf Ereignis warten", "category": "scene", "has_input": true, "outputs": [],
+		"fields": {"event": "", "timeout": 0.0}, "summary": "event",
+		"help": "Wartet, bis das Spiel ein Ereignis meldet, z. B. ein StoryTrigger, wenn der Spieler eine Zone betritt. Mit Zeitlimit gibt es einen Ausgang 'Zeit abgelaufen'. Schon vorher eingetretene Ereignisse zählen nicht; dafür gibt es ereignis(\"name\") in Bedingungen."},
+	"actor_animation": {"title": "Animation abspielen", "category": "scene", "has_input": true, "outputs": ["weiter"],
+		"fields": {"actor": "", "animation": "", "wait_done": true},
+		"help": "Spielt eine Animation am Objekt ab (AnimationPlayer im Objekt oder AnimatedSprite)."},
+	"actor_visibility": {"title": "Zeigen / Verstecken", "category": "scene", "has_input": true, "outputs": ["weiter"],
+		"fields": {"actor": "", "visible": true},
+		"help": "Macht ein Objekt sichtbar oder unsichtbar."},
+	"actor_property": {"title": "Eigenschaft setzen", "category": "scene", "has_input": true, "outputs": ["weiter"],
+		"fields": {"actor": "", "property": "", "value": "", "duration": 0.0},
+		"help": "Setzt eine Eigenschaft des Objekts, z. B. modulate = Color.RED oder light_energy = 0. Mit Dauer > 0 wird weich übergeblendet."},
+	"actor_move":   {"title": "Objekt bewegen", "category": "scene", "has_input": true, "outputs": ["weiter"],
+		"fields": {"actor": "", "to_actor": "", "duration": 1.0, "wait_done": true},
+		"help": "Bewegt ein Objekt zur Position eines anderen Objekts (am besten ein Marker2D/Marker3D mit StoryActor)."},
+	"actor_call":   {"title": "Objekt-Methode aufrufen", "category": "scene", "has_input": true, "outputs": ["weiter"],
+		"fields": {"actor": "", "method": "", "args": []},
+		"help": "Ruft eine Methode am Objekt auf, z. B. open() an einer Tür. Gibt sie ein Signal zurück, wird gewartet."},
+	"play_sound":   {"title": "Sound abspielen", "category": "scene", "has_input": true, "outputs": ["weiter"],
+		"fields": {"sound": "", "volume_db": 0.0, "wait_done": false}, "summary": "sound",
+		"help": "Spielt eine Audiodatei ab."},
+	"camera":       {"title": "Kamera wechseln", "category": "scene", "has_input": true, "outputs": ["weiter"],
+		"fields": {"actor": ""}, "summary": "actor",
+		"help": "Macht die Kamera (Camera2D/Camera3D mit StoryActor) zur aktiven Kamera."},
+	"change_scene": {"title": "Szene wechseln", "category": "scene", "has_input": true, "outputs": [],
+		"fields": {"scene_path": ""}, "summary": "scene_path",
+		"help": "Lädt eine andere Szene. Der Graph endet hier; die neue Szene startet ihren eigenen Graph."},
 	"expression":   {"title": "Ausdruck ausführen", "category": "script", "has_input": true, "outputs": ["weiter"],
 		"fields": {"code": ""}, "summary": "code",
 		"help": "Führt einen GDScript-Ausdruck aus. 'ctx' ist der Kontext-Node deines Spiels, 'runner' der StoryGraphRunner."},
@@ -175,6 +215,10 @@ static func get_outputs(type: String, data: Dictionary) -> Array[String]:
 			for i in weights.size():
 				var pct := 0.0 if total <= 0.0 else maxf(0.0, float(weights[i])) / total * 100.0
 				outputs.append("%d %%" % roundi(pct))
+		"wait_event":
+			outputs.append("eingetreten")
+			if float(data.get("timeout", 0.0)) > 0.0:
+				outputs.append("⏱ Zeit abgelaufen")
 		"sequence":
 			for i in int(data.get("steps", 2)):
 				outputs.append("Schritt %d" % (i + 1))
@@ -223,6 +267,21 @@ static func summary_text(type: String, data: Dictionary) -> String:
 			return prompt + ("  ⏱ %s s" % str(limit) if limit > 0.0 else "")
 		"call_method":
 			return "%s.%s()" % [data.get("node_path", "."), data.get("method", "")]
+		"wait_event":
+			var t := float(data.get("timeout", 0.0))
+			return str(data.get("event", "")) + ("  ⏱ %s s" % str(t) if t > 0.0 else "")
+		"actor_animation":
+			return "%s ▶ %s" % [data.get("actor", "?"), data.get("animation", "")]
+		"actor_visibility":
+			return "%s %s" % [data.get("actor", "?"), "zeigen" if data.get("visible", true) else "verstecken"]
+		"actor_property":
+			return "%s.%s = %s" % [data.get("actor", "?"), data.get("property", ""), data.get("value", "")]
+		"actor_move":
+			return "%s → %s (%s s)" % [data.get("actor", "?"), data.get("to_actor", "?"), str(data.get("duration", 0))]
+		"actor_call":
+			return "%s.%s()" % [data.get("actor", "?"), data.get("method", "")]
+		"camera":
+			return "→ " + str(data.get("actor", ""))
 	var def := get_def(type)
 	if def.has("summary"):
 		return str(data.get(def["summary"], ""))

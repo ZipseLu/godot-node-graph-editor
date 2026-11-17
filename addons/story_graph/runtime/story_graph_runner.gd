@@ -29,7 +29,13 @@ signal started()
 signal finished(ending_id: String)
 signal error_occurred(message: String, node_id: String)
 
+## Das Spiel hat ein Ereignis gemeldet (StoryTrigger oder notify_event()).
+signal event_received(event_name: String, data: Variant)
+## Nur mit simulate_missing_methods: eine Szenen-Aktion wäre im Spiel ausgeführt worden.
+signal action_simulated(description: String)
+
 signal _advanced()
+signal _wakeup()
 signal _chosen(index: int)
 signal _tasks_changed()
 
@@ -50,6 +56,8 @@ var tasks: Dictionary = {}
 ## Besuchte Nodes in Reihenfolge, z. B. für eine Flowchart-Übersicht.
 var history: Array[String] = []
 var visit_counts: Dictionary = {}
+## Ereignisname -> Anzahl, wie oft es gemeldet wurde.
+var fired_events: Dictionary = {}
 var current_node_id := ""
 var running := false
 
@@ -57,6 +65,10 @@ var _run_id := 0
 var _sync_steps := 0
 var _graph_cache: Dictionary = {}
 var _waiting_for := ""  # "advance" | "choice" | ""
+
+
+func _enter_tree() -> void:
+	add_to_group(StoryTrigger.RUNNER_GROUP)
 
 
 func _ready() -> void:
@@ -167,6 +179,30 @@ func complete_task(task_id: String, success := true) -> void:
 	_tasks_changed.emit()
 
 
+## Meldet ein Spielereignis an die Story (das macht auch StoryTrigger).
+## Alternativ von überall: StoryTrigger.notify(get_tree(), "name")
+func notify_event(event_name: String, data: Variant = null) -> void:
+	fired_events[event_name] = int(fired_events.get(event_name, 0)) + 1
+	event_received.emit(event_name, data)
+	_wakeup.emit()
+
+
+## Für Bedingungen: ereignis("kueche_betreten") ist wahr, wenn es schon einmal gemeldet wurde.
+func ereignis(event_name: String) -> bool:
+	return fired_events.has(event_name)
+
+
+func has_event(event_name: String) -> bool:
+	return fired_events.has(event_name)
+
+
+## Findet ein Spielobjekt über seine StoryActor-ID.
+func find_actor(id: String) -> Node:
+	if not is_inside_tree():
+		return null
+	return StoryActor.find(get_tree(), id)
+
+
 func is_task_active(task_id: String) -> bool:
 	return tasks.get(task_id, {}).get("status", "") == "active"
 
@@ -183,6 +219,7 @@ func get_state() -> Dictionary:
 		"tasks": tasks.duplicate(true),
 		"history": history.duplicate(),
 		"visit_counts": visit_counts.duplicate(),
+		"fired_events": fired_events.duplicate(),
 		"current_node": current_node_id,
 	}
 
@@ -194,6 +231,7 @@ func set_state(state: Dictionary) -> void:
 	tasks = state.get("tasks", {}).duplicate(true)
 	history.assign(state.get("history", []))
 	visit_counts = state.get("visit_counts", {}).duplicate()
+	fired_events = state.get("fired_events", {}).duplicate()
 	current_node_id = state.get("current_node", "")
 
 
@@ -448,6 +486,59 @@ func _execute(g: StoryGraphData, id: String, node: Dictionary, run: int) -> Dict
 					return {"stopped": true}
 			return {"port": 0}
 
+		"wait_event":
+			_sync_steps = 0
+			var ev := str(d.get("event", ""))
+			var timeout := float(d.get("timeout", 0.0))
+			var st := {"done": false, "timed_out": false}
+			var on_event := func(n: String, _data): if n == ev: st["done"] = true
+			event_received.connect(on_event)
+			if timeout > 0.0:
+				get_tree().create_timer(timeout, false).timeout.connect(func():
+					st["timed_out"] = true
+					_wakeup.emit())
+			while not st["done"] and not st["timed_out"]:
+				await _wakeup
+				if run != _run_id:
+					event_received.disconnect(on_event)
+					return {"stopped": true}
+			event_received.disconnect(on_event)
+			return {"port": 0 if st["done"] else 1}
+
+		"actor_animation", "actor_visibility", "actor_property", "actor_move", "actor_call", "camera":
+			return await _execute_actor(node["type"], d, id)
+
+		"play_sound":
+			var path := str(d.get("sound", ""))
+			var stream := load(path) as AudioStream if ResourceLoader.exists(path) else null
+			if stream == null:
+				if simulate_missing_methods:
+					action_simulated.emit("Sound %s" % path)
+					return {"port": 0}
+				_error("Sound '%s' nicht gefunden." % path, id)
+				return {"port": 0}
+			var player := AudioStreamPlayer.new()
+			player.stream = stream
+			player.volume_db = float(d.get("volume_db", 0.0))
+			add_child(player)
+			player.finished.connect(player.queue_free)
+			player.play()
+			if bool(d.get("wait_done", false)):
+				_sync_steps = 0
+				await player.finished
+			return {"port": 0}
+
+		"change_scene":
+			var path := str(d.get("scene_path", ""))
+			if simulate_missing_methods:
+				action_simulated.emit("Szene wechseln zu %s" % path)
+				return {"ending": "szene:" + path}
+			if not ResourceLoader.exists(path):
+				_error("Szene '%s' nicht gefunden." % path, id)
+				return {"stopped": true}
+			get_tree().change_scene_to_file.call_deferred(path)
+			return {"ending": "szene:" + path}
+
 		"expression":
 			var r = evaluate(str(d.get("code", "")), null, id)
 			if r is Signal:
@@ -486,6 +577,98 @@ func _execute(g: StoryGraphData, id: String, node: Dictionary, run: int) -> Dict
 
 	_error("Unbekannter Node-Typ '%s'." % node["type"], id)
 	return {"stopped": true}
+
+
+func _execute_actor(type: String, d: Dictionary, id: String) -> Dictionary:
+	var actor_id := str(d.get("actor", ""))
+	var target := find_actor(actor_id)
+	if target == null:
+		if simulate_missing_methods:
+			action_simulated.emit("%s: %s" % [StoryNodeTypes.get_def(type)["title"], StoryNodeTypes.summary_text(type, d)])
+			if type == "actor_move" and bool(d.get("wait_done", true)):
+				await get_tree().create_timer(float(d.get("duration", 0.0)), false).timeout
+			return {"port": 0}
+		_error("Kein Objekt mit Story-ID '%s' in der Szene (StoryActor fehlt?)." % actor_id, id)
+		return {"port": 0}
+	match type:
+		"actor_visibility":
+			if "visible" in target:
+				target.visible = bool(d.get("visible", true))
+			else:
+				_error("'%s' kann nicht ein-/ausgeblendet werden." % actor_id, id)
+
+		"actor_property":
+			var prop := str(d.get("property", ""))
+			var value = evaluate(str(d.get("value", "")), null, id)
+			var duration := float(d.get("duration", 0.0))
+			if duration > 0.0:
+				_sync_steps = 0
+				var tw := create_tween()
+				tw.tween_property(target, NodePath(prop), value, duration)
+				await tw.finished
+			else:
+				target.set_indexed(NodePath(prop), value)
+
+		"actor_move":
+			var dest := find_actor(str(d.get("to_actor", "")))
+			if dest == null or not ("global_position" in dest) or not ("global_position" in target):
+				_error("Ziel-Objekt '%s' nicht gefunden oder ohne Position." % d.get("to_actor", ""), id)
+				return {"port": 0}
+			var duration := float(d.get("duration", 1.0))
+			if duration <= 0.0:
+				target.global_position = dest.global_position
+			else:
+				var tw := create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+				tw.tween_property(target, "global_position", dest.global_position, duration)
+				if bool(d.get("wait_done", true)):
+					_sync_steps = 0
+					await tw.finished
+
+		"actor_animation":
+			var anim := str(d.get("animation", ""))
+			var player := _find_animator(target)
+			if player == null:
+				_error("'%s' hat keinen AnimationPlayer oder AnimatedSprite." % actor_id, id)
+				return {"port": 0}
+			if player is AnimationPlayer and not player.has_animation(anim):
+				_error("Animation '%s' gibt es an '%s' nicht." % [anim, actor_id], id)
+				return {"port": 0}
+			player.play(anim)
+			if bool(d.get("wait_done", true)):
+				_sync_steps = 0
+				await player.animation_finished
+
+		"actor_call":
+			var method := str(d.get("method", ""))
+			if not target.has_method(method):
+				_error("'%s' hat keine Methode '%s'." % [actor_id, method], id)
+				return {"port": 0}
+			var args := []
+			for a in d.get("args", []):
+				args.append(evaluate(str(a), null, id))
+			var r = target.callv(method, args)
+			if r is Signal:
+				_sync_steps = 0
+				await r
+
+		"camera":
+			if target.has_method("make_current"):
+				target.make_current()
+			else:
+				_error("'%s' ist keine Kamera." % actor_id, id)
+	return {"port": 0}
+
+
+func _find_animator(target: Node) -> Node:
+	if target is AnimationPlayer or target is AnimatedSprite2D or target is AnimatedSprite3D:
+		return target
+	for child in target.find_children("*", "AnimationPlayer", true, false):
+		return child
+	for child in target.find_children("*", "AnimatedSprite2D", true, false):
+		return child
+	for child in target.find_children("*", "AnimatedSprite3D", true, false):
+		return child
+	return null
 
 
 func _tasks_satisfied(ids: Array, need_all: bool) -> bool:

@@ -1,0 +1,493 @@
+{
+	"format": "story_graph",
+	"version": 1,
+	"meta": {
+		"title": "Demo-Level: Flucht"
+	},
+	"variables": {
+		"hat_schluessel": {
+			"type": "bool",
+			"default": false
+		},
+		"alarm": {
+			"type": "bool",
+			"default": false
+		}
+	},
+	"nodes": [
+		{
+			"id": "start",
+			"type": "start",
+			"position": [
+				0,
+				300
+			],
+			"data": {}
+		},
+		{
+			"id": "intro",
+			"type": "dialogue",
+			"position": [
+				300,
+				280
+			],
+			"data": {
+				"speaker": "Kara",
+				"text": "Ich muss hier raus. Aber die Tür ist verschlossen …"
+			}
+		},
+		{
+			"id": "t_key",
+			"type": "task_start",
+			"position": [
+				600,
+				280
+			],
+			"data": {
+				"task_id": "schluessel",
+				"description": "Finde den Schlüssel"
+			}
+		},
+		{
+			"id": "w_key",
+			"type": "wait_event",
+			"position": [
+				900,
+				280
+			],
+			"data": {
+				"event": "schluessel_aufgehoben",
+				"timeout": 0.0
+			}
+		},
+		{
+			"id": "hide_key",
+			"type": "actor_visibility",
+			"position": [
+				1200,
+				280
+			],
+			"data": {
+				"actor": "schluessel",
+				"visible": false
+			}
+		},
+		{
+			"id": "has_key",
+			"type": "set_var",
+			"position": [
+				1500,
+				280
+			],
+			"data": {
+				"variable": "hat_schluessel",
+				"op": "=",
+				"value": "true"
+			}
+		},
+		{
+			"id": "done_key",
+			"type": "task_complete",
+			"position": [
+				1800,
+				280
+			],
+			"data": {
+				"task_id": "schluessel",
+				"success": true
+			}
+		},
+		{
+			"id": "t_door",
+			"type": "task_start",
+			"position": [
+				2100,
+				280
+			],
+			"data": {
+				"task_id": "tuer",
+				"description": "Öffne die Tür (20 Sekunden)"
+			}
+		},
+		{
+			"id": "w_door",
+			"type": "wait_event",
+			"position": [
+				2400,
+				280
+			],
+			"data": {
+				"event": "tuer_erreicht",
+				"timeout": 20.0
+			}
+		},
+		{
+			"id": "cam_door",
+			"type": "camera",
+			"position": [
+				2700,
+				120
+			],
+			"data": {
+				"actor": "kamera_tuer"
+			}
+		},
+		{
+			"id": "steps",
+			"type": "dialogue",
+			"position": [
+				3000,
+				120
+			],
+			"data": {
+				"speaker": "",
+				"text": "Draußen hört man Schritte."
+			}
+		},
+		{
+			"id": "choice",
+			"type": "choice",
+			"position": [
+				3300,
+				100
+			],
+			"data": {
+				"prompt": "Was tust du?",
+				"options": [
+					"Leise aufschließen",
+					"Tür auframmen"
+				],
+				"time_limit": 6.0
+			}
+		},
+		{
+			"id": "open_quiet",
+			"type": "actor_move",
+			"position": [
+				3600,
+				-20
+			],
+			"data": {
+				"actor": "tuer",
+				"to_actor": "tuer_offen",
+				"duration": 1.5,
+				"wait_done": true
+			}
+		},
+		{
+			"id": "alarm",
+			"type": "set_var",
+			"position": [
+				3600,
+				160
+			],
+			"data": {
+				"variable": "alarm",
+				"op": "=",
+				"value": "true"
+			}
+		},
+		{
+			"id": "lamp",
+			"type": "actor_property",
+			"position": [
+				3900,
+				160
+			],
+			"data": {
+				"actor": "lampe",
+				"property": "color",
+				"value": "Color(1, 0.15, 0.15)",
+				"duration": 0.4
+			}
+		},
+		{
+			"id": "open_fast",
+			"type": "actor_move",
+			"position": [
+				4200,
+				160
+			],
+			"data": {
+				"actor": "tuer",
+				"to_actor": "tuer_offen",
+				"duration": 0.3,
+				"wait_done": true
+			}
+		},
+		{
+			"id": "cam_room",
+			"type": "camera",
+			"position": [
+				4500,
+				60
+			],
+			"data": {
+				"actor": "kamera_raum"
+			}
+		},
+		{
+			"id": "done_door",
+			"type": "task_complete",
+			"position": [
+				4800,
+				60
+			],
+			"data": {
+				"task_id": "tuer",
+				"success": true
+			}
+		},
+		{
+			"id": "w_exit",
+			"type": "wait_event",
+			"position": [
+				5100,
+				60
+			],
+			"data": {
+				"event": "raum_verlassen",
+				"timeout": 0.0
+			}
+		},
+		{
+			"id": "check",
+			"type": "branch",
+			"position": [
+				5400,
+				60
+			],
+			"data": {
+				"condition": "alarm"
+			}
+		},
+		{
+			"id": "caught_txt",
+			"type": "dialogue",
+			"position": [
+				5700,
+				160
+			],
+			"data": {
+				"speaker": "Wache",
+				"text": "Stehen bleiben!"
+			}
+		},
+		{
+			"id": "end_caught",
+			"type": "end",
+			"position": [
+				6000,
+				160
+			],
+			"data": {
+				"ending_id": "entdeckt"
+			}
+		},
+		{
+			"id": "free_txt",
+			"type": "dialogue",
+			"position": [
+				5700,
+				-40
+			],
+			"data": {
+				"speaker": "Kara",
+				"text": "Geschafft. Niemand hat mich gesehen."
+			}
+		},
+		{
+			"id": "end_free",
+			"type": "end",
+			"position": [
+				6000,
+				-40
+			],
+			"data": {
+				"ending_id": "entkommen"
+			}
+		},
+		{
+			"id": "late",
+			"type": "dialogue",
+			"position": [
+				2700,
+				460
+			],
+			"data": {
+				"speaker": "Kara",
+				"text": "Zu spät … sie kommen."
+			}
+		},
+		{
+			"id": "end_late",
+			"type": "end",
+			"position": [
+				3000,
+				460
+			],
+			"data": {
+				"ending_id": "gefangen"
+			}
+		}
+	],
+	"connections": [
+		{
+			"from": "start",
+			"from_port": 0,
+			"to": "intro"
+		},
+		{
+			"from": "intro",
+			"from_port": 0,
+			"to": "t_key"
+		},
+		{
+			"from": "t_key",
+			"from_port": 0,
+			"to": "w_key"
+		},
+		{
+			"from": "w_key",
+			"from_port": 0,
+			"to": "hide_key"
+		},
+		{
+			"from": "hide_key",
+			"from_port": 0,
+			"to": "has_key"
+		},
+		{
+			"from": "has_key",
+			"from_port": 0,
+			"to": "done_key"
+		},
+		{
+			"from": "done_key",
+			"from_port": 0,
+			"to": "t_door"
+		},
+		{
+			"from": "t_door",
+			"from_port": 0,
+			"to": "w_door"
+		},
+		{
+			"from": "w_door",
+			"from_port": 0,
+			"to": "cam_door"
+		},
+		{
+			"from": "w_door",
+			"from_port": 1,
+			"to": "late"
+		},
+		{
+			"from": "late",
+			"from_port": 0,
+			"to": "end_late"
+		},
+		{
+			"from": "cam_door",
+			"from_port": 0,
+			"to": "steps"
+		},
+		{
+			"from": "steps",
+			"from_port": 0,
+			"to": "choice"
+		},
+		{
+			"from": "choice",
+			"from_port": 0,
+			"to": "open_quiet"
+		},
+		{
+			"from": "choice",
+			"from_port": 1,
+			"to": "alarm"
+		},
+		{
+			"from": "choice",
+			"from_port": 2,
+			"to": "alarm"
+		},
+		{
+			"from": "alarm",
+			"from_port": 0,
+			"to": "lamp"
+		},
+		{
+			"from": "lamp",
+			"from_port": 0,
+			"to": "open_fast"
+		},
+		{
+			"from": "open_quiet",
+			"from_port": 0,
+			"to": "cam_room"
+		},
+		{
+			"from": "open_fast",
+			"from_port": 0,
+			"to": "cam_room"
+		},
+		{
+			"from": "cam_room",
+			"from_port": 0,
+			"to": "done_door"
+		},
+		{
+			"from": "done_door",
+			"from_port": 0,
+			"to": "w_exit"
+		},
+		{
+			"from": "w_exit",
+			"from_port": 0,
+			"to": "check"
+		},
+		{
+			"from": "check",
+			"from_port": 0,
+			"to": "caught_txt"
+		},
+		{
+			"from": "check",
+			"from_port": 1,
+			"to": "free_txt"
+		},
+		{
+			"from": "caught_txt",
+			"from_port": 0,
+			"to": "end_caught"
+		},
+		{
+			"from": "free_txt",
+			"from_port": 0,
+			"to": "end_free"
+		}
+	],
+	"comments": [
+		{
+			"id": "c1",
+			"title": "Tür: Entscheidung unter Zeitdruck",
+			"position": [
+				3260,
+				-100
+			],
+			"size": [
+				1260,
+				400
+			],
+			"color": "#5a3a4a",
+			"nodes": [
+				"choice",
+				"open_quiet",
+				"alarm",
+				"lamp",
+				"open_fast"
+			]
+		}
+	]
+}

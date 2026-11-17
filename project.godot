@@ -12,3 +12,6 @@ window/size/viewport_height=900
 
 [editor_plugins]
 enabled=PackedStringArray()
+
+[rendering]
+environment/defaults/default_clear_color=Color(0.1, 0.11, 0.13, 1)
